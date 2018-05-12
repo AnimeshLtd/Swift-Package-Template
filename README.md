@@ -176,3 +176,35 @@ let package = Package(
     ]
 )
 ```
+
+# Creating Packages
+
+Create an empty project folder and run the following command create a Swift package.
+
+```bash
+# Create a library package
+$ swift package init
+
+# Create an executable package
+$ swift package init --type executable
+```
+
+# Building a package
+```bash
+$ swift build
+```
+By default, running `swift build` will build in debug configuration. To build in release mode, use 
+`swift build -c release`. The build artifacts are located in directory called `debug` or `release` under 
+build folder.
+
+# Publish a Package
+To publish a package, you just have to initialise a git repository and create a semantic version tag.
+
+```bash
+$ git init
+$ git add .
+$ git remote add origin <GitHub repo URL here>
+$ git commit -m "Initial commit"
+$ git tag 1.0.0
+$ git push origin master --tags
+```
