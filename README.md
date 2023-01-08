@@ -1,4 +1,4 @@
-# Genesis
+# Swift Package Manager
 
 According to [Apple](https://swift.org/package-manager/):
 > The Swift Package Manager is a tool for managing the distribution of Swift Code. It's integrated with the 
@@ -8,9 +8,11 @@ Simply put, SPM : Swift ∷ NPM : JavaScript. The Swift Package Manager (SPM) is
 above. This repository serves as my personal documentation for how to make the best use of Swift Package 
 Manager. As such, it may become outdated as things in Swiftverse evolve.
 
-# Terminology
+## Terminology
 
-## Module
+### Module
+Libraries, frameworks and Swift packages are all types of modules and enable code separation and reusability.
+
 Each module specifies a namespace and enforces access controls on parts of the code that can be used outside 
 the module. Aside from the handful of system-provided modules, such as Darwin on macOS or Glibc on Linux, most 
 of your source code will have third-party dependencies that will need to be downloaded and built in order to 
@@ -18,73 +20,95 @@ be used.
 
 You can have your entire code in one module that you write, or you could import other modules as dependencies.
 
-## Package
+### Package
 A package consists of Swift source files and a manifest file called `Package.swift`. `Package.swift` defines
 the package's name, targets and dependencies using the `PackageDescription` module.
 
 ### Target
-Every Swift package has one or more **targets**. Each target specifies a product to build and contains the
-instructions for building the product from a set of files in a project. Projects can contain one or more 
-targets, each of which produces one product. If a target requires the output of another target in order to 
-build, the first target is said to depend upon the second.
+Every Swift package has one or more **targets**. A target is an actual module you are going to import into
+your code. It's represented in package directory structure as a folder containing all the target files.
 
-Targets are usually used for different distrubution of the same project. For example, you could have two 
-targets a `release` target, and a `beta` target that has extra testing features. You can pick and
-choose which classes or resources are added to which target. You can also add tests, using a third target
-and call it `Tests`. 
+Targets are lower level for your package architecture, and the libraries are the top level packaged good that's
+distributed. Library is what you link to a project and its targets are what you import into your files.
 
 ### Product
 A product may be either an *executable* or a *library*. An executable is a Swift program that can be run by 
 the operating system. A library contains a module that can be imported by other Swift modules. A target is 
 available to other packages only if it is a part of some product.
 
-# The Package Manifest
+In iOS there are two types of libraries – **dynamic** and **static** – defined on the basis of how they are
+linked to the app. Static libraries are linked during compile time and have an `.a` extension. They become
+part of your app and increase build time and package size. Dynamic libraries are linked during runtime and
+have a negative influence on startup time. Their extension is `.dylib`. They can be replaced without shipping
+a new build and thus they are not supported in iOS besides Apple's own system libraries. 
+
+## The Package Manifest
 
 The `Package.swift` manifest file declares a Swift package using the `PackageDescription` module.
+
+```swift
+// swift-tools-version:5.7
+```
+This line indicates the minimum Swift Tools version your package manifest will
+work with.
 
 ```swift
 import PackageDescription
 
 let package = Package(...)
 ```
-
-The `Package` initialiser requires the following parameters:
-- `name` of the package
-- `products` vended by the package
-- external package `dependencies`
-- list of `targets` in the package
-- `swiftLanguageVersions` supported by the package
-
-For System Module Packages, two additional parameters are required:
-- `pkgConfig`: Name of the pkg-config (.pc) file to get the additional flags for system modules.
-- `providers`: Defines hints to display for installing system modules.
+The main class in `PackageDescription` is `Package`. The `Package.swift` manifest
+file is responsible for initialising a `Package` object which holds configuration
+information for your Swift package.
 
 ### `name`
-Name of the package. This is the only requirement for a manifest to be *valid*. But one or more targets are 
-required to build a package.
+Name of the package. This is the only requirement for a manifest to be *valid*.
+But one or more targets are required to build a package. Package name must be
+globally unique. This is a pain point in Swift land as of writing, and the current
+convention is to use a prefix of some kind. I use AL (Animesh Ltd) in all my
+package names. 
 
 ```swift
 import PackageDescription
 
 let package = Package(
-    name: "Genesis"
+    name: "ALAarambh"
 )
 ``` 
+
+### `platforms`
+Swift supports five platforms – iOS, macOS, tvOS, watchOS and Linux. The `platforms`
+property contains the list of **minimum** supported versions for different platforms.
+
+Do note that `platforms` does **not** describe **supported** platforms. All
+platforms are supported. If a platform is not listed in `platforms` property then
+the actual minimum version will be the first version that supports Swift. For
+instance, if we don't add an iOS version to the list, the minimum version will
+be iOS 8.
+
+It is better to try and set minimum versions as lower as we can. Best to avoid
+setting a minimum altogether. The minimum version is a constraint that can make
+it difficult to integrate other packages into the project.
+
+```swift
+platforms: [
+  .macOS(.v10_13),
+  .iOS(.v11),
+  .tvOS(.v11),
+  .watchOS(.v4),
+  .custom("Ubuntu", versionString: "22.04")
+],
+```
 
 ### `targets`
 Declares the targets in the package.
 
 ```swift
-import PackageDescription
-
-let package = Package(
-    name: "Genesis",
-    targets: [
-        .target(name: "Genesis", dependencies: ["GenesisAPI"]),
-        .target(name: "GenesisAPI", dependencies: []),
-        .testTarget(name: "GenesisTests", dependencies: ["Genesis"])
-    ]
-)
+targets: [
+  .executableTarget(name: "App", dependencies: ["Aarambh"]),
+  .target(name: "Aarambh", dependencies: []),
+  .testTarget(name: "AarambhTests", dependencies: ["Aarambh"])
+]
 ``` 
 
 ### `products`
@@ -98,86 +122,22 @@ A list of all the products that are vended by the package. Two types of products
     the executable needs to be made available to other packages.
 
 ```swift
-import PackageDescription
-
-let package = Package(
-    name: "Genesis",
-    products: [
-        .executable(name: "Genesis", targets: ["Genesis"]),
-        .library(name: "GenesisLib", targets: ["GenesisAPI"]),
-    ],
-    targets: [
-        .target(name: "Genesis", dependencies: ["GenesisAPI"]),
-        .target(name: "GenesisAPI", dependencies: []),
-        .testTarget(name: "GenesisTests", dependencies: ["Genesis"])
-    ]
-)
+products: [
+  .executable(name: "App", targets: ["App"]),
+  .library(name: "Aarambh", targets: ["Aarambh"])
+],
 ```
 
 ### `dependencies`
-List of packages that the package depends on. Package version can be defined in a variety of ways:
-
-- `from: "1.2.3"` ≣ 1.2.3 ..< 2.0.0 
-- `.upToNextMajor(from: "1.2.3")` ≣ 1.2.3 ..< 2.0.0
-- `.upToNextMinor(from: "1.2.3")` ≣ 1.2.3 ..< 1.3.0
-- `.exact("1.2.3")` ≣ 1.2.3
-- `"1.2.3"..<"2.3.4"` ≣ 1.2.3 ..< 2.3.4
-- `"1.2.3"..."2.3.4"` ≣ 1.2.3 ... 2.3.4
-- `.branch("master")` pulls the latest commit to the `master` branch
-- `.revision("e74b013ljslkjdfslecncslkeae")` pulls the commit identified by the given hash
+List of packages that the package depends on.
 
 ```swift
-import PackageDescription
-
-let package = Package(
-    name: "Genesis",
-    products: [
-        .executable(name: "Genesis", targets: ["Genesis"]),
-        .library(name: "GenesisLib", targets: ["GenesisAPI"]),
-    ],
-    dependencies: [
-        .package(url: "https://github.com/IBM-Swift/Kitura.git", from: "1.0.0"),
-    ],
-    targets: [
-        .target(name: "Genesis", dependencies: ["GenesisAPI"]),
-        .target(name: "GenesisAPI", dependencies: ["Kitura"]),
-        .testTarget(name: "GenesisTests", dependencies: ["Genesis"])
-    ]
-)
+dependencies: [
+  .package(url: "https://github.com/AnimeshLtd/Some-Package", from: "1.0.0"),
+]
 ```
 
-### `swiftLanguageVersions`
-Specifies the set of supported Swift language versions. E.g if set to `[3]` both Swift 3 and 4 compilers will
-select Swift 3, and if set to `[3, 4]`, Swift 3 compiler will select `3` and Swift 4 compiler will select `4`.
-If the package doesn't specify any Swift language versions, the language version to be used will match the
-major version of the package's Swift tools version.
-
-The Swift tools version of a package is specified at the top of `Package.swift` as a comment, like so,
-`// swift-tools-version: 4.0.2`.
-
-```swift
-// swift-tools-version: 4.0.2
-
-import PackageDescription
-
-let package = Package(
-    name: "Genesis",
-    products: [
-        .executable(name: "Genesis", targets: ["Genesis"]),
-        .library(name: "GenesisLib", targets: ["GenesisAPI"]),
-    ],
-    dependencies: [
-        .package(url: "https://github.com/IBM-Swift/Kitura.git", from: "1.0.0"),
-    ],
-    targets: [
-        .target(name: "Genesis", dependencies: ["GenesisAPI"]),
-        .target(name: "GenesisAPI", dependencies: ["Kitura"]),
-        .testTarget(name: "GenesisTests", dependencies: ["Genesis"])
-    ]
-)
-```
-
-# Creating Packages
+## Creating Packages from scratch
 
 Create an empty project folder and run the following command create a Swift package.
 
@@ -189,7 +149,8 @@ $ swift package init
 $ swift package init --type executable
 ```
 
-# Building a package
+### Building a package
+
 ```bash
 $ swift build
 ```
@@ -197,7 +158,7 @@ By default, running `swift build` will build in debug configuration. To build in
 `swift build -c release`. The build artifacts are located in directory called `debug` or `release` under 
 build folder.
 
-# Publish a Package
+### Publish a Package
 To publish a package, you just have to initialise a git repository and create a semantic version tag.
 
 ```bash
